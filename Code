@@ -1,0 +1,243 @@
+Makefile
+
+all: SIR SEIR
+
+SIR: SIR.o
+	c++ -o SIR SIR.o -lcpgplot -lpgplot -lm -lX11 -ljpeg -lpng
+
+SIR.o: SIR.cpp
+	c++ -c -o SIR.o SIR.cpp
+
+SEIR: SEIR.o
+	c++ -o SEIR SEIR.o -lcpgplot -lpgplot -lm -lX11 -ljpeg -lpng
+
+SEIR.o: SEIR.cpp
+	c++ -c -o SEIR.o SEIR.cpp
+
+
+SIR.cpp
+
+#include <iostream>
+#include <cpgplot.h>
+
+const double N = 100000; // Total population
+
+const double beta = 1.5; // Transmission rate
+const double gamma_rate = 0.75; // Recovery rate
+
+double susceptible(double S, double I) {
+    return -beta * S * I / N;
+}
+
+double infected(double S, double I) {
+    return beta * S * I / N - gamma_rate * I;
+}
+
+double recovered(double I) {
+    return gamma_rate * I;
+}
+
+void rungeKutta4(double& S, double& I, double& R, double delta_t) {
+    double dS1, dI1, dR1;
+    double dS2, dI2, dR2;
+    double dS3, dI3, dR3;
+    double dS4, dI4, dR4;
+
+    dS1 = delta_t * susceptible(S, I);
+    dI1 = delta_t * infected(S, I);
+    dR1 = delta_t * recovered(I);
+
+    dS2 = delta_t * susceptible(S + 0.5 * dS1, I + 0.5 * dI1);
+    dI2 = delta_t * infected(S + 0.5 * dS1, I + 0.5 * dI1);
+    dR2 = delta_t * recovered(I + 0.5 * dR1);
+
+    dS3 = delta_t * susceptible(S + 0.5 * dS2, I + 0.5 * dI2);
+    dI3 = delta_t * infected(S + 0.5 * dS2, I + 0.5 * dI2);
+    dR3 = delta_t * recovered(I + 0.5 * dR2);
+
+    dS4 = delta_t * susceptible(S + dS3, I + dI3);
+    dI4 = delta_t * infected(S + dS3, I + dI3);
+    dR4 = delta_t * recovered(I + dR3);
+
+    S = S + (dS1 + 2 * dS2 + 2 * dS3 + dS4) / 6.0;
+    I = I + (dI1 + 2 * dI2 + 2 * dI3 + dI4) / 6.0;
+    R = R + (dR1 + 2 * dR2 + 2 * dR3 + dR4) / 6.0;
+}
+
+void plotSIR(float* tp, float* Sp, float* Ip, float* Rp, int n, double N) {
+    cpgopen("/XWINDOW");
+    cpgenv(0., 30, 0., N, 0, 1);
+    cpglab("Time", "Population", "Covid SIR Model");
+
+    cpgsci(2);
+    cpgline(n + 1, tp, Sp); // Susceptible
+    cpgtext(2, 0.9 * N, "Susceptible");
+
+    cpgsci(3);
+    cpgline(n + 1, tp, Ip); // Infected
+    cpgtext(2, 0.85 * N, "Infected");
+
+    cpgsci(5);
+    cpgline(n + 1, tp, Rp); // Recovered
+    cpgtext(2, 0.8 * N, "Recovered");
+
+    cpgclos();
+}
+
+int main() {
+    int n = 10000; // Number of steps
+
+    double tstart = 0.0;
+    double tend = 30.0;
+
+    double S = N - 4; // Initial susceptible population
+    double I = 2; // Initial infected population
+    double R = 2; // Initial recovered population
+
+    double t = tstart;
+    double delta_t = (tend - tstart) / n;
+
+    float tp[n + 1];
+    float Sp[n + 1];
+    float Ip[n + 1];
+    float Rp[n + 1];
+
+    for (int i = 0; i <= n; ++i) {
+        tp[i] = t;
+        Sp[i] = S;
+        Ip[i] = I;
+        Rp[i] = R;
+
+        rungeKutta4(S, I, R, delta_t);
+        t += delta_t;
+    }
+
+    plotSIR(tp, Sp, Ip, Rp, n, N);
+
+    return 0;
+}
+
+
+SEIR.cpp
+
+#include <iostream>
+#include <cpgplot.h>
+
+const double N = 7900010; // Total population
+
+const double beta = 0.8; // Transmission rate
+const double sigma = 0.2; // Infection rate
+const double gamma_rate = 0.01; // Recovery rate
+
+double susceptible(double S, double E, double I) {
+    return -beta * S * I / N;
+}
+
+double exposed(double S, double E, double I) {
+    return beta * S * I / N - sigma * E;
+}
+
+double infected(double E, double I) {
+    return sigma * E - gamma_rate * I;
+}
+
+double recovered(double I) {
+    return gamma_rate * I;
+}
+
+void rungeKutta4(double& S, double& E, double& I, double& R, double delta_t) {
+    
+    double dS1, dE1, dI1, dR1;
+    double dS2, dE2, dI2, dR2;
+    double dS3, dE3, dI3, dR3;
+    double dS4, dE4, dI4, dR4;
+
+    dS1 = delta_t * susceptible(S, E, I);
+    dE1 = delta_t * exposed(S, E, I);
+    dI1 = delta_t * infected(E, I);
+    dR1 = delta_t * recovered(I);
+
+    dS2 = delta_t * susceptible(S + 0.5 * dS1, E + 0.5 * dE1, I + 0.5 * dI1);
+    dE2 = delta_t * exposed(S + 0.5 * dS1, E + 0.5 * dE1, I + 0.5 * dI1);
+    dI2 = delta_t * infected(E + 0.5 * dE1, I + 0.5 * dI1);
+    dR2 = delta_t * recovered(I + 0.5 * dR1);
+
+    dS3 = delta_t * susceptible(S + 0.5 * dS2, E + 0.5 * dE2, I + 0.5 * dI2);
+    dE3 = delta_t * exposed(S + 0.5 * dS2, E + 0.5 * dE2, I + 0.5 * dI2);
+    dI3 = delta_t * infected(E + 0.5 * dE2, I + 0.5 * dI2);
+    dR3 = delta_t * recovered(I + 0.5 * dR2);
+
+    dS4 = delta_t * susceptible(S + dS3, E + dE3, I + dI3);
+    dE4 = delta_t * exposed(S + dS3, E + dE3, I + dI3);
+    dI4 = delta_t * infected(E + dE3, I + dI3);
+    dR4 = delta_t * recovered(I + dR3);
+
+    S = S + (dS1 + 2 * dS2 + 2 * dS3 + dS4) / 6.0;
+    E = E + (dE1 + 2 * dE2 + 2 * dE3 + dE4) / 6.0;
+    I = I + (dI1 + 2 * dI2 + 2 * dI3 + dI4) / 6.0;
+    R = R + (dR1 + 2 * dR2 + 2 * dR3 + dR4) / 6.0;
+}
+
+void plotSEIR(float* tp, float* Sp, float* Ep, float* Ip, float* Rp, int n, double N) {
+
+    cpgopen("/XWINDOW");
+    cpgenv(0., 220, 0., N, 0, 1);
+    cpglab("Time", "Population", "Covid SEIR Model");
+
+    cpgsci(2);
+    cpgline(n + 1, tp, Sp); // Susceptible
+    cpgtext(11, 0.9 * N, "Susceptible");
+
+    cpgsci(6);
+    cpgline(n + 1, tp, Ep); // Exposed
+    cpgtext(11, 0.85 * N, "Exposed");
+
+    cpgsci(3);
+    cpgline(n + 1, tp, Ip); // Infected
+    cpgtext(11, 0.8 * N, "Infected");
+
+    cpgsci(5);
+    cpgline(n + 1, tp, Rp); // Recovered
+    cpgtext(11, 0.75 * N, "Recovered");
+
+    cpgclos();
+}
+
+int main() {
+
+    int n = 10000; //Number of steps
+
+    double tstart = 0.0;
+    double tend = 220.0;
+
+    double S = N - 10; // Initial susceptible population
+    double E = 0; // Initial exposed population
+    double I = 10; // Initial infected population
+    double R = 0; // Initial recovered population
+
+    double t = tstart;
+    double delta_t = (tend - tstart) / n;
+
+    float tp[n + 1];
+    float Sp[n + 1];
+    float Ep[n + 1];
+    float Ip[n + 1];
+    float Rp[n + 1];
+
+    for (int i = 0; i <= n; ++i) {
+        tp[i] = t;
+        Sp[i] = S;
+        Ep[i] = E;
+        Ip[i] = I;
+        Rp[i] = R;
+
+        rungeKutta4(S, E, I, R, delta_t);
+        t += delta_t;
+    }
+
+    plotSEIR(tp, Sp, Ep, Ip, Rp, n, N);
+
+    return 0;
+}
+
+
